@@ -214,12 +214,13 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     //
     current_task = 0;
     num_total_tasks = 0;
-    awake_counter = 0;
+    awake_counter = 8;
     threads = new std::thread[num_threads];
     ready = new bool[num_threads];
     for (int i=0; i<num_threads; i++) {
         ready[i] = false;
-    }    master_awake = true;
+    }    
+    master_awake = true;
     for (int i=0; i<num_threads; i++) {
         threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
     }
@@ -258,8 +259,12 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
         }
         else{ // no work to do. wake master
             lk.unlock();
+            // wait for all threads to be awake
+            while (awake_counter < num_threads){
+            }
+            // wake master
             while (!master_awake){
-                master_condition_variable_.notify_all();
+                condition_variable_.notify_all();
             }
             ready[thread_id] = true;
             lk.lock();
@@ -294,8 +299,8 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
         condition_variable_.notify_all();
     }
 
-    std::unique_lock<std::mutex> lk(master_mutex_);
-    master_condition_variable_.wait(lk);
+    std::unique_lock<std::mutex> lk(mutex_);
+    condition_variable_.wait(lk);
     lk.unlock();
     master_awake = true;
 
@@ -327,10 +332,20 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     num_total_tasks = -1;
     awake_counter = 0;
     mutex_.unlock();
-    while (awake_counter < num_threads) {
-        // wait for all threads to be ready
+    while (true){
         condition_variable_.notify_all();
+        bool all_done = true;
+        for (int i=0; i<num_threads; i++) {
+            if (!ready[i]) {
+                all_done = false;
+                break;
+            }
+        }
+        if (all_done) {
+            break;
+        }
     }
+
     for (int i=0; i<num_threads; i++)
         threads[i].join();
     delete[] threads;
