@@ -1,5 +1,4 @@
 #include "tasksys.h"
-#include <thread>
 
 IRunnable::~IRunnable() {}
 
@@ -106,16 +105,56 @@ const char* TaskSystemParallelThreadPoolSpinning::name() {
     return "Parallel + Thread Pool + Spin";
 }
 
-TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int num_threads): ITaskSystem(num_threads) {
+TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int num_threads): ITaskSystem(num_threads), num_threads(num_threads) {
     //
     // TODO: CS149 student implementations may decide to perform setup
     // operations (such as thread pool construction) here.
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
+    current_task = 0;
+    num_total_tasks = 0;
+    threads = new std::thread[num_threads];
+    ready = new bool[num_threads];
+    for (int i=0; i<num_threads; i++) {
+        ready[i] = true;
+    }
+    for (int i=0; i<num_threads; i++) {
+        threads[i] = std::thread(&TaskSystemParallelThreadPoolSpinning::collaborate, this, i);
+    }
 }
 
-TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {}
+TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
+    num_total_tasks = -1;
+    for (int i=0; i<num_threads; i++)
+        threads[i].join();
+    delete[] threads;
+    delete[] ready;
+}
+
+void TaskSystemParallelThreadPoolSpinning::collaborate(int thread_id) {
+    bool need_run;
+    int task;
+    while (true) {
+        // quit if total task is -1
+        if (num_total_tasks == -1)
+            return;
+        // check if something needs to be done
+        mutex_.lock();
+        if (current_task < num_total_tasks){
+            task = current_task++;
+            need_run = true;
+        } else {
+            need_run = false;
+            ready[thread_id] = true;
+        }
+        mutex_.unlock();
+        if (need_run) {
+            runnable->runTask(task, num_total_tasks);
+            // printf("run task %d num_total_tasks %d", task, num_total_tasks);
+        }
+    }
+}
 
 void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_total_tasks) {
 
@@ -125,9 +164,28 @@ void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_tota
     // method in Part A.  The implementation provided below runs all
     // tasks sequentially on the calling thread.
     //
+    this -> runnable = runnable;
+    mutex_.lock();
+    this -> current_task = 0;
+    this -> num_total_tasks = num_total_tasks;
+    // in case threads can't set ready in time
+    for (int i=0; i<num_threads; i++) {
+        ready[i] = false;
+    }
+    mutex_.unlock();
 
-    for (int i = 0; i < num_total_tasks; i++) {
-        runnable->runTask(i, num_total_tasks);
+    // check all is done
+    while (true){
+        bool all_done = true;
+        for (int i=0; i<num_threads; i++) {
+            if (!ready[i]) {
+                all_done = false;
+                break;
+            }
+        }
+        if (all_done) {
+            break;
+        }
     }
 }
 
