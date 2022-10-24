@@ -83,6 +83,7 @@ void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
     
     for (int i=0; i<this->num_threads; i++)
         threads[i].join();
+    current_task = 0;
     return;
 }
 
