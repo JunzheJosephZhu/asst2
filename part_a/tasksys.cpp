@@ -260,9 +260,10 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
         else{ // no work to do. wake master
             lk.unlock();
             master_mutex_.lock();
-            master_mutex_.unlock();
             // wake master
-            master_condition_variable_.notify_all();
+            if (!master_awake)
+                master_condition_variable_.notify_all();
+            master_mutex_.unlock();
             ready[thread_id] = true;
             lk.lock();
             condition_variable_.wait(lk);
@@ -314,7 +315,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
             break;
         }
     }
-    // printf("finished\n");
 
 }
 
