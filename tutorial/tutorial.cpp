@@ -86,27 +86,30 @@ void signal_fn(ThreadState* thread_state) {
     thread_state->mutex_->lock();
     while (thread_state->counter_ < thread_state->num_waiting_threads_) {
         thread_state->mutex_->unlock();
+        printf("thread unlocked by master\n");
         // Release the mutex before calling `notify_all()` to make sure
         // waiting threads have a chance to make progress.
         thread_state->condition_variable_->notify_all();
         // Re-acquire the mutex to read the shared counter again.
         thread_state->mutex_->lock();
+        printf("thread locked by master\n");
     }
     thread_state->mutex_->unlock();
 }
 
-void wait_fn(ThreadState* thread_state) {
+void wait_fn(ThreadState* thread_state, int thread_num) {
     // A lock must be held in order to wait on a condition variable.
     // This lock is atomically released before the thread goes to sleep
     // when `wait()` is called. The lock is atomically re-acquired when
     // the thread is woken up using `notify_all()`.
     std::unique_lock<std::mutex> lk(*thread_state->mutex_);
+    printf("lock acquired by thread %d\n", thread_num);
     thread_state->condition_variable_->wait(lk);
     // Increment the shared counter with the lock re-acquired to inform the
     // signaling thread that this waiting thread has successfully been
     // woken up.
     thread_state->counter_++;
-    printf("Lock re-acquired after wait()...\n");
+    printf("Lock re-acquired after wait()...%d\n", thread_num);
     lk.unlock();
 }
 
@@ -123,7 +126,7 @@ void condition_variable_example() {
     ThreadState* thread_state = new ThreadState(num_threads-1);
     threads[0] = std::thread(signal_fn, thread_state);
     for (int i = 1; i < num_threads; i++) {
-        threads[i] = std::thread(wait_fn, thread_state);
+        threads[i] = std::thread(wait_fn, thread_state, i);
     }
     for (int i = 0; i < num_threads; i++) {
         threads[i].join();

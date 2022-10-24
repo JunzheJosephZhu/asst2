@@ -4,6 +4,7 @@
 #include "itasksys.h"
 #include <mutex>
 #include <thread>
+#include <condition_variable>
 
 /*
  * TaskSystemSerial: This class is the student's implementation of a
@@ -80,6 +81,17 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
         TaskSystemParallelThreadPoolSleeping(int num_threads);
         ~TaskSystemParallelThreadPoolSleeping();
         const char* name();
+        // added variables
+        const int num_threads;
+        std::condition_variable condition_variable_;
+        std::mutex mutex_;
+        int current_task;
+        int num_total_tasks;
+        std::thread* threads;
+        bool* ready;
+        IRunnable* runnable;
+        void collaborate(int thread_id);
+        // end added variables
         void run(IRunnable* runnable, int num_total_tasks);
         TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
                                 const std::vector<TaskID>& deps);

@@ -151,14 +151,11 @@ void TaskSystemParallelThreadPoolSpinning::collaborate(int thread_id) {
         mutex_.unlock();
         if (need_run) {
             runnable->runTask(task, num_total_tasks);
-            // printf("run task %d num_total_tasks %d", task, num_total_tasks);
         }
     }
 }
 
 void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_total_tasks) {
-
-
     //
     // TODO: CS149 students will modify the implementation of this
     // method in Part A.  The implementation provided below runs all
@@ -208,13 +205,23 @@ const char* TaskSystemParallelThreadPoolSleeping::name() {
     return "Parallel + Thread Pool + Sleep";
 }
 
-TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads) {
+TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads), num_threads(num_threads) {
     //
     // TODO: CS149 student implementations may decide to perform setup
     // operations (such as thread pool construction) here.
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
+    current_task = 0;
+    num_total_tasks = 0;
+    threads = new std::thread[num_threads];
+    ready = new bool[num_threads];
+    for (int i=0; i<num_threads; i++) {
+        ready[i] = false;
+    }
+    for (int i=0; i<num_threads; i++) {
+        threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
+    }
 }
 
 TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
@@ -224,7 +231,55 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
+    num_total_tasks = -1;
+    for (int i=0; i<num_threads; i++) {
+        ready[i] = false;
+    }
+    while (true){
+        condition_variable_.notify_all();
+        bool all_done = true;
+        for (int i=0; i<num_threads; i++) {
+            if (!ready[i]) {
+                all_done = false;
+                break;
+            }
+        }
+        if (all_done) {
+            break;
+        }
+    }
+    // for (int i=0; i<num_threads; i++)
+    //     condition_variable_.notify_all();
+    for (int i=0; i<num_threads; i++)
+        threads[i].join();
+    delete[] threads;
+    delete[] ready;
 }
+
+void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
+    // acquire lock 
+    std::unique_lock<std::mutex> lk(mutex_);
+    int task;
+    while (true) {
+        if (num_total_tasks == -1){ // quit if total task is -1
+            ready[thread_id] = true;
+            lk.unlock();
+            return;
+        }
+        if (current_task < num_total_tasks){ // some work to do
+            task = current_task++;
+            // unlock. Do work. Lock again
+            lk.unlock();
+            runnable->runTask(task, num_total_tasks);
+            lk.lock();        
+        }
+        else{ // no work to do
+            ready[thread_id] = true;
+            condition_variable_.wait(lk);
+        }
+    }
+}
+
 
 void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_total_tasks) {
 
@@ -235,8 +290,29 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // tasks sequentially on the calling thread.
     //
 
-    for (int i = 0; i < num_total_tasks; i++) {
-        runnable->runTask(i, num_total_tasks);
+    this -> runnable = runnable;
+    mutex_.lock();
+    this -> current_task = 0;
+    this -> num_total_tasks = num_total_tasks;
+    // in case threads can't set ready in time
+    for (int i=0; i<num_threads; i++) {
+        ready[i] = false;
+    }
+    mutex_.unlock();
+
+    // check all is done
+    while (true){
+        condition_variable_.notify_all();
+        bool all_done = true;
+        for (int i=0; i<num_threads; i++) {
+            if (!ready[i]) {
+                all_done = false;
+                break;
+            }
+        }
+        if (all_done) {
+            break;
+        }
     }
 }
 
