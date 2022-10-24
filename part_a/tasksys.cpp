@@ -214,7 +214,7 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     //
     current_task = 0;
     num_total_tasks = 0;
-    awake_counter = 8;
+    awake_counter = 0;
     threads = new std::thread[num_threads];
     ready = new bool[num_threads];
     for (int i=0; i<num_threads; i++) {
@@ -259,13 +259,10 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
         }
         else{ // no work to do. wake master
             lk.unlock();
-            // wait for all threads to be awake
-            while (awake_counter < num_threads){
-            }
+            master_mutex_.lock();
+            master_mutex_.unlock();
             // wake master
-            while (!master_awake){
-                condition_variable_.notify_all();
-            }
+            master_condition_variable_.notify_all();
             ready[thread_id] = true;
             lk.lock();
             condition_variable_.wait(lk);
@@ -295,12 +292,12 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 
     master_awake = false;
     // check all is done
+    std::unique_lock<std::mutex> lk(master_mutex_);
     while (awake_counter < num_threads){
         condition_variable_.notify_all();
     }
 
-    std::unique_lock<std::mutex> lk(mutex_);
-    condition_variable_.wait(lk);
+    master_condition_variable_.wait(lk);
     lk.unlock();
     master_awake = true;
 
@@ -317,6 +314,7 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
             break;
         }
     }
+    // printf("finished\n");
 
 }
 
