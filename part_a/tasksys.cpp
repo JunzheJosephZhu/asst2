@@ -214,29 +214,18 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     //
     current_task = 0;
     num_total_tasks = 0;
+    awake_counter = 0;
     threads = new std::thread[num_threads];
     ready = new bool[num_threads];
     for (int i=0; i<num_threads; i++) {
         ready[i] = false;
-    }
+    }    master_awake = true;
     for (int i=0; i<num_threads; i++) {
         threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
     }
-}
 
-TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
-    //
-    // TODO: CS149 student implementations may decide to perform cleanup
-    // operations (such as thread pool shutdown construction) here.
-    // Implementations are free to add new class member variables
-    // (requiring changes to tasksys.h).
-    //
-    num_total_tasks = -1;
-    for (int i=0; i<num_threads; i++) {
-        ready[i] = false;
-    }
+    // check all is done
     while (true){
-        condition_variable_.notify_all();
         bool all_done = true;
         for (int i=0; i<num_threads; i++) {
             if (!ready[i]) {
@@ -248,12 +237,6 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
             break;
         }
     }
-    // for (int i=0; i<num_threads; i++)
-    //     condition_variable_.notify_all();
-    for (int i=0; i<num_threads; i++)
-        threads[i].join();
-    delete[] threads;
-    delete[] ready;
 }
 
 void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
@@ -273,9 +256,15 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
             runnable->runTask(task, num_total_tasks);
             lk.lock();        
         }
-        else{ // no work to do
+        else{ // no work to do. wake master
+            lk.unlock();
+            while (!master_awake){
+                master_condition_variable_.notify_all();
+            }
             ready[thread_id] = true;
+            lk.lock();
             condition_variable_.wait(lk);
+            awake_counter++;
         }
     }
 }
@@ -289,20 +278,29 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // method in Parts A and B.  The implementation provided below runs all
     // tasks sequentially on the calling thread.
     //
-
     this -> runnable = runnable;
     mutex_.lock();
-    this -> current_task = 0;
+    current_task = 0;
     this -> num_total_tasks = num_total_tasks;
-    // in case threads can't set ready in time
+    awake_counter = 0;
     for (int i=0; i<num_threads; i++) {
         ready[i] = false;
     }
     mutex_.unlock();
 
+    master_awake = false;
+    // check all is done
+    while (awake_counter < num_threads){
+        condition_variable_.notify_all();
+    }
+
+    std::unique_lock<std::mutex> lk(master_mutex_);
+    master_condition_variable_.wait(lk);
+    lk.unlock();
+    master_awake = true;
+
     // check all is done
     while (true){
-        condition_variable_.notify_all();
         bool all_done = true;
         for (int i=0; i<num_threads; i++) {
             if (!ready[i]) {
@@ -314,7 +312,31 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
             break;
         }
     }
+
 }
+
+
+TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
+    //
+    // TODO: CS149 student implementations may decide to perform cleanup
+    // operations (such as thread pool shutdown construction) here.
+    // Implementations are free to add new class member variables
+    // (requiring changes to tasksys.h).
+    //
+    mutex_.lock();
+    num_total_tasks = -1;
+    awake_counter = 0;
+    mutex_.unlock();
+    while (awake_counter < num_threads) {
+        // wait for all threads to be ready
+        condition_variable_.notify_all();
+    }
+    for (int i=0; i<num_threads; i++)
+        threads[i].join();
+    delete[] threads;
+    delete[] ready;
+}
+
 
 TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
                                                     const std::vector<TaskID>& deps) {
@@ -326,6 +348,7 @@ TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnabl
 
     return 0;
 }
+
 
 void TaskSystemParallelThreadPoolSleeping::sync() {
 
