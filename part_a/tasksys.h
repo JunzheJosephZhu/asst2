@@ -88,7 +88,6 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
         std::condition_variable master_condition_variable_;
         std::mutex master_mutex_;
         volatile int awake_counter; // how many workers are awake
-        bool master_awake; // is the master awake
         volatile int current_task;
         int num_total_tasks;
         std::thread* threads;

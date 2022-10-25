@@ -216,7 +216,6 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     num_total_tasks = 0;
     awake_counter = num_threads;
     threads = new std::thread[num_threads];
-    master_awake = true;
     for (int i=0; i<num_threads; i++) {
         threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
     }
@@ -268,7 +267,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     mutex_.lock();
     current_task = 0;
     this -> num_total_tasks = num_total_tasks;
-    master_awake = false;
     mutex_.unlock();
 
     // check all is done
@@ -280,7 +278,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // master sleep
     master_condition_variable_.wait(lk);
     lk.unlock();
-    master_awake = true;
 
 
     // wait till all threads sleep
