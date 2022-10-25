@@ -214,30 +214,15 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     //
     current_task = 0;
     num_total_tasks = 0;
-    awake_counter = 0;
+    awake_counter = num_threads;
     threads = new std::thread[num_threads];
-    ready = new bool[num_threads];
-    for (int i=0; i<num_threads; i++) {
-        ready[i] = false;
-    }    
     master_awake = true;
     for (int i=0; i<num_threads; i++) {
         threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
     }
-
-    // check all is done
-    while (true){
-        bool all_done = true;
-        for (int i=0; i<num_threads; i++) {
-            if (!ready[i]) {
-                all_done = false;
-                break;
-            }
-        }
-        if (all_done) {
-            break;
-        }
+    while (awake_counter > 0){
     }
+    // printf("start\n");
 }
 
 void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
@@ -246,7 +231,7 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
     int task;
     while (true) {
         if (num_total_tasks == -1){ // quit if total task is -1
-            ready[thread_id] = true;
+            // printf("thread %d quit\n", thread_id);
             lk.unlock();
             return;
         }
@@ -259,13 +244,11 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
         }
         else{ // no work to do. wake master
             lk.unlock();
-            master_mutex_.lock();
             // wake master
-            if (!master_awake)
+            while (!master_awake)
                 master_condition_variable_.notify_all();
-            master_mutex_.unlock();
-            ready[thread_id] = true;
             lk.lock();
+            awake_counter--;
             condition_variable_.wait(lk);
             awake_counter++;
         }
@@ -281,17 +264,15 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // method in Parts A and B.  The implementation provided below runs all
     // tasks sequentially on the calling thread.
     //
+    // printf("run\n");
     this -> runnable = runnable;
     mutex_.lock();
     current_task = 0;
     this -> num_total_tasks = num_total_tasks;
     awake_counter = 0;
-    for (int i=0; i<num_threads; i++) {
-        ready[i] = false;
-    }
+    master_awake = false;
     mutex_.unlock();
 
-    master_awake = false;
     // check all is done
     std::unique_lock<std::mutex> lk(master_mutex_);
     while (awake_counter < num_threads && current_task < num_total_tasks){
@@ -302,20 +283,16 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     lk.unlock();
     master_awake = true;
 
-    // check all is done
+
+    // wait till all threads sleep
     while (true){
-        bool all_done = true;
-        for (int i=0; i<num_threads; i++) {
-            if (!ready[i]) {
-                all_done = false;
-                break;
-            }
-        }
-        if (all_done) {
+        mutex_.lock();
+        if (awake_counter==0){
+            mutex_.unlock();
             break;
         }
+        mutex_.unlock();
     }
-
 }
 
 
@@ -326,28 +303,24 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
+    // printf("destructor\n");
     mutex_.lock();
     num_total_tasks = -1;
-    awake_counter = 0;
     mutex_.unlock();
     while (true){
         condition_variable_.notify_all();
-        bool all_done = true;
-        for (int i=0; i<num_threads; i++) {
-            if (!ready[i]) {
-                all_done = false;
-                break;
-            }
-        }
-        if (all_done) {
+        mutex_.lock();
+        // printf("awake_counter: %d\n", awake_counter);
+        if (awake_counter == num_threads){
+            mutex_.unlock();
             break;
         }
+        mutex_.unlock();
     }
 
     for (int i=0; i<num_threads; i++)
         threads[i].join();
     delete[] threads;
-    delete[] ready;
 }
 
 
