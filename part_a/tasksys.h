@@ -85,9 +85,9 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
         const int num_threads;
         std::condition_variable condition_variable_;
         std::mutex mutex_;
-        std::condition_variable master_condition_variable_;
-        std::mutex master_mutex_;
-        volatile int awake_counter; // how many workers are awake
+        // std::condition_variable master_condition_variable_;
+        // std::mutex master_mutex_;
+        // volatile int awake_counter; // how many workers are awake
         volatile int current_task;
         volatile int completed;
         volatile int quit;
