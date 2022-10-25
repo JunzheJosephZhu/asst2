@@ -269,7 +269,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     mutex_.lock();
     current_task = 0;
     this -> num_total_tasks = num_total_tasks;
-    awake_counter = 0;
     master_awake = false;
     mutex_.unlock();
 
