@@ -214,6 +214,7 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     //
     current_task = 0;
     num_total_tasks = 0;
+    quit = 0;
     awake_counter = num_threads;
     threads = new std::thread[num_threads];
     for (int i=0; i<num_threads; i++) {
@@ -237,8 +238,8 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
             // unlock. Do work. Lock again
             lk.unlock();
             runnable->runTask(task, num_total_tasks);
-            completed++;
-            lk.lock();        
+            lk.lock();
+            completed++;        
         }
         else{ // no work to do. wake master
             condition_variable_.wait(lk);
@@ -259,12 +260,12 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     this -> runnable = runnable;
     mutex_.lock();
     current_task = 0;
+    completed = 0;
     this -> num_total_tasks = num_total_tasks;
     mutex_.unlock();
     while (completed < num_total_tasks){
         condition_variable_.notify_all();
     }
-
 
 
 }
@@ -277,8 +278,10 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
-    while (quit < num_threads):
+    num_total_tasks = -1;
+    while (quit < num_threads){
         condition_variable_.notify_all();
+    }
 
     for (int i=0; i<num_threads; i++)
         threads[i].join();
