@@ -263,7 +263,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // method in Parts A and B.  The implementation provided below runs all
     // tasks sequentially on the calling thread.
     //
-    printf("run\n");
     this -> runnable = runnable;
     mutex_.lock();
     current_task = 0;
