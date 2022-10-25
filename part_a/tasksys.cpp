@@ -244,6 +244,7 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
             task = current_task++;
             // unlock. Do work. Lock again
             lk.unlock();
+            condition_variable_.notify_all(); // notify all threads
             runnable->runTask(task, num_total_tasks);
             lk.lock();
         }
@@ -272,9 +273,8 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     this -> num_total_tasks = num_total_tasks;
     mutex_.unlock();
 
-    while(current_task < num_total_tasks){
-        condition_variable_.notify_all();
-    }
+    condition_variable_.notify_all();
+
     bool all_completed = false;
     while(!all_completed){
         all_completed = true;
