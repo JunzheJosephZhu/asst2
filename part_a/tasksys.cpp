@@ -244,8 +244,8 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
         }
         else{ // no work to do. wake master
             master_mutex_.lock();
-            master_mutex_.unlock();
             master_condition_variable_.notify_all();
+            master_mutex_.unlock();
             awake_counter--;
             condition_variable_.wait(lk);
             awake_counter++;
@@ -275,7 +275,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     }
 
     std::unique_lock<std::mutex> lk(master_mutex_);
-
     // master sleep
     master_condition_variable_.wait(lk);
     lk.unlock();
