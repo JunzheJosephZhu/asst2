@@ -5,6 +5,7 @@
 #include <mutex>
 #include <thread>
 #include <condition_variable>
+#include <atomic>
 
 /*
  * TaskSystemSerial: This class is the student's implementation of a
@@ -43,6 +44,7 @@ class TaskSystemParallelSpawn: public ITaskSystem {
         void sync();
 };
 
+
 /*
  * TaskSystemParallelThreadPoolSpinning: This class is the student's
  * implementation of a parallel task execution engine that uses a
@@ -57,10 +59,11 @@ class TaskSystemParallelThreadPoolSpinning: public ITaskSystem {
         // added variables
         const int num_threads;
         std::mutex mutex_;
+        int run_count;
         int current_task;
         int num_total_tasks;
         std::thread* threads;
-        bool* ready;
+        std::atomic<bool>* ready;
         IRunnable* runnable;
         void collaborate(int thread_id);
         // end added variables
@@ -81,21 +84,6 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
         TaskSystemParallelThreadPoolSleeping(int num_threads);
         ~TaskSystemParallelThreadPoolSleeping();
         const char* name();
-        // added variables
-        const int num_threads;
-        std::condition_variable condition_variable_;
-        std::mutex mutex_;
-        // std::condition_variable master_condition_variable_;
-        // std::mutex master_mutex_;
-        // volatile int awake_counter; // how many workers are awake
-        volatile int current_task;
-        bool* completed;
-        bool* quit;
-        int num_total_tasks;
-        std::thread* threads;
-        IRunnable* runnable;
-        void collaborate(int thread_id);
-        // end added variables
         void run(IRunnable* runnable, int num_total_tasks);
         TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
                                 const std::vector<TaskID>& deps);
