@@ -215,7 +215,6 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     current_task = 0;
     num_total_tasks = 0;
     quit = 0;
-    awake_counter = num_threads;
     threads = new std::thread[num_threads];
     for (int i=0; i<num_threads; i++) {
         threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
