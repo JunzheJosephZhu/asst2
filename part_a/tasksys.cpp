@@ -219,10 +219,6 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     for (int i=0; i<num_threads; i++) {
         threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
     }
-    // wait for all threads to sleep
-    while (awake_counter > 0){
-    }
-    // printf("start\n");
 }
 
 void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
@@ -232,6 +228,7 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
     while (true) {
         if (num_total_tasks == -1){ // quit if total task is -1
             // printf("thread %d quit\n", thread_id);
+            quit++;
             lk.unlock();
             return;
         }
@@ -240,15 +237,11 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
             // unlock. Do work. Lock again
             lk.unlock();
             runnable->runTask(task, num_total_tasks);
+            completed++;
             lk.lock();        
         }
         else{ // no work to do. wake master
-            // master_mutex_.lock();
-            // master_condition_variable_.notify_all();
-            // master_mutex_.unlock();
-            awake_counter--;
             condition_variable_.wait(lk);
-            awake_counter++;
         }
     }
 }
@@ -267,31 +260,13 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     mutex_.lock();
     current_task = 0;
     this -> num_total_tasks = num_total_tasks;
-
-
-    // std::unique_lock<std::mutex> lk(master_mutex_);
-    // check all is done
-    while (awake_counter < num_threads && current_task < num_total_tasks){
-        mutex_.unlock();
-        condition_variable_.notify_all();
-        mutex_.lock();
-    }
-
-    // // master sleep
-    // master_condition_variable_.wait(lk);
-    // lk.unlock();
     mutex_.unlock();
-
-
-    // wait till all threads sleep
-    while (true){
-        mutex_.lock();
-        if (awake_counter==0){
-            mutex_.unlock();
-            break;
-        }
-        mutex_.unlock();
+    while (completed < num_total_tasks){
+        condition_variable_.notify_all();
     }
+
+
+
 }
 
 
@@ -302,20 +277,8 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
-    // printf("destructor\n");
-    mutex_.lock();
-    num_total_tasks = -1;
-    mutex_.unlock();
-    while (true){
+    while (quit < num_threads):
         condition_variable_.notify_all();
-        mutex_.lock();
-        // printf("awake_counter: %d\n", awake_counter);
-        if (awake_counter == num_threads){
-            mutex_.unlock();
-            break;
-        }
-        mutex_.unlock();
-    }
 
     for (int i=0; i<num_threads; i++)
         threads[i].join();
