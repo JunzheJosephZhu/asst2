@@ -83,11 +83,16 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
         const char* name();
         // added variables
         const int num_threads;
+        std::condition_variable condition_variable_;
         std::mutex mutex_;
-        int current_task;
+        // std::condition_variable master_condition_variable_;
+        // std::mutex master_mutex_;
+        // volatile int awake_counter; // how many workers are awake
+        volatile int current_task;
+        bool* completed;
+        bool* quit;
         int num_total_tasks;
         std::thread* threads;
-        bool* ready;
         IRunnable* runnable;
         void collaborate(int thread_id);
         // end added variables
