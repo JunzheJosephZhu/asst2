@@ -270,7 +270,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     mutex_.unlock();
 
     // check all is done
-    std::unique_lock<std::mutex> lk(master_mutex_);
     while (awake_counter < num_threads && current_task < num_total_tasks){
         condition_variable_.notify_all();
     }
