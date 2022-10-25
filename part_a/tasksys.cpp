@@ -215,6 +215,14 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
     current_task = 0;
     num_total_tasks = 0;
     quit = 0;
+    completed = new bool[num_threads];
+    for (int i=0; i<num_threads; i++){
+        completed[i] = false;
+    }
+    quit = new bool[num_threads];
+    for (int i=0; i<num_threads; i++){
+        quit[i] = false;
+    }
     threads = new std::thread[num_threads];
     for (int i=0; i<num_threads; i++) {
         threads[i] = std::thread(&TaskSystemParallelThreadPoolSleeping::collaborate, this, i);
@@ -228,8 +236,8 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
     while (true) {
         if (num_total_tasks == -1){ // quit if total task is -1
             // printf("thread %d quit\n", thread_id);
-            quit++;
             lk.unlock();
+            quit[thread_id] = true;
             return;
         }
         if (current_task < num_total_tasks){ // some work to do
@@ -238,9 +246,9 @@ void TaskSystemParallelThreadPoolSleeping::collaborate(int thread_id) {
             lk.unlock();
             runnable->runTask(task, num_total_tasks);
             lk.lock();
-            completed++;        
         }
         else{ // no work to do. wake master
+            completed[thread_id] = true;
             condition_variable_.wait(lk);
         }
     }
@@ -255,18 +263,29 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // method in Parts A and B.  The implementation provided below runs all
     // tasks sequentially on the calling thread.
     //
-    // printf("run\n");
+    printf("run\n");
     this -> runnable = runnable;
     mutex_.lock();
     current_task = 0;
-    completed = 0;
+    for (int i=0; i<num_threads; i++){
+        completed[i] = false;
+    }
     this -> num_total_tasks = num_total_tasks;
     mutex_.unlock();
-    while (completed < num_total_tasks){
+
+    while(current_task < num_total_tasks){
         condition_variable_.notify_all();
     }
-
-
+    bool all_completed = false;
+    while(!all_completed){
+        all_completed = true;
+        for (int i=0; i<num_threads; i++){
+            if (!completed[i]){
+                all_completed = false;
+                break;
+            }
+        }
+    }
 }
 
 
@@ -278,10 +297,17 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // (requiring changes to tasksys.h).
     //
     num_total_tasks = -1;
-    while (quit < num_threads){
+    bool all_quit = false;
+    while(!all_quit){
         condition_variable_.notify_all();
+        all_quit = true;
+        for (int i=0; i<num_threads; i++){
+            if (!quit[i]){
+                all_quit = false;
+                break;
+            }
+        }
     }
-
     for (int i=0; i<num_threads; i++)
         threads[i].join();
     delete[] threads;
