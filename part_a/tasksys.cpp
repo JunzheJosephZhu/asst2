@@ -274,6 +274,8 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
         condition_variable_.notify_all();
     }
 
+    std::unique_lock<std::mutex> lk(master_mutex_);
+
     // master sleep
     master_condition_variable_.wait(lk);
     lk.unlock();
