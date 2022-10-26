@@ -158,6 +158,17 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     }
 }
 
+void TaskSystemParallelThreadPoolSleeping::collaborate {
+    // if unblocked queue is not empty, take the first taskid, increment its counter
+
+
+    // if unblocked queue is empty, push stuff from blocked queue to unblocked queue
+
+    // if both queues are empty, sleep
+
+
+
+}
 TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
                                                     const std::vector<TaskID>& deps) {
 
@@ -165,12 +176,17 @@ TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnabl
     //
     // TODO: CS149 students will implement this method in Part B.
     //
+    mutex_.lock();
+    taskid = runnables_list.size();
+    runnables_list.push_back(runnable);
+    deps_list.push_back(deps);
+    taken.push_back(0);
+    completed.push_back(0);
+    num_total_tasks_list.push_back(num_total_tasks);
+    queue_blocked.push_back(id);
+    mutex_.unlock();
+    // wake up all the threads
 
-    for (int i = 0; i < num_total_tasks; i++) {
-        runnable->runTask(i, num_total_tasks);
-    }
-
-    return 0;
 }
 
 void TaskSystemParallelThreadPoolSleeping::sync() {

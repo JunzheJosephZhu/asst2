@@ -2,7 +2,10 @@
 #define _TASKSYS_H
 
 #include "itasksys.h"
-
+#include <mutex>
+#include <thread>
+#include <condition_variable>
+#include <atomic>
 /*
  * TaskSystemSerial: This class is the student's implementation of a
  * serial task execution engine.  See definition of ITaskSystem in
@@ -68,6 +71,18 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
         TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
                                 const std::vector<TaskID>& deps);
         void sync();
+        // added variables
+        const int num_threads;
+        std::mutex mutex_;
+        std::vector<IRunnable*> runnables_list;// list of pointers to runnables
+        std::vector<std::vector<TaskID>> deps_list;// list of dependency vector
+        std::vector<std::atomic<int>> taken;// list of int, how many tasks taken for each runnable
+        std::vector<std::atomic<int>> completed;// list of int, how many tasks are completed for each runnalbe
+        std::vector<int> num_total_tasks_list;// list of number of a tasks in each gang launch
+        std::vector<int> queue_blocked;// two queues. pull from front of one and push to the end of other
+        std::vector<int> queue_unblocked;
+        // when one gang launch finishes, check all subsequent gang lanches to see if their dependencies are cleared
+        // end added variables
 };
 
 #endif
