@@ -72,15 +72,20 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
                                 const std::vector<TaskID>& deps);
         void sync();
         // added variables
+        void collaborate(int thread_id);
+        std::thread* threads;
         const int num_threads;
         std::mutex mutex_;
+        std::condition_variable condition_variable_;
         std::vector<IRunnable*> runnables_list;// list of pointers to runnables
         std::vector<std::vector<TaskID>> deps_list;// list of dependency vector
-        std::vector<std::atomic<int>> taken;// list of int, how many tasks taken for each runnable
-        std::vector<std::atomic<int>> completed;// list of int, how many tasks are completed for each runnalbe
+        std::vector<int> taken;// list of int, how many tasks taken for each runnable
+        std::vector<int> completed;// list of int, how many tasks are completed for each runnalbe
         std::vector<int> num_total_tasks_list;// list of number of a tasks in each gang launch
         std::vector<int> queue_blocked;// two queues. pull from front of one and push to the end of other
         std::vector<int> queue_unblocked;
+        std::atomic<int> asleep;
+        volatile bool terminate;
         // when one gang launch finishes, check all subsequent gang lanches to see if their dependencies are cleared
         // end added variables
 };

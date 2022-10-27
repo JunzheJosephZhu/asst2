@@ -56,6 +56,8 @@ int main(int argc, char** argv)
     TestResults (*test[n_tests])(ITaskSystem*) = {
         simpleTestSync,
         simpleTestAsync,
+        myTestSync,
+        myTestAsync,
         pingPongEqualTest,
         pingPongUnequalTest,
         superLightTest,
@@ -88,6 +90,8 @@ int main(int argc, char** argv)
     std::string test_names[n_tests] = {
         "simple_test_sync",
         "simple_test_async",
+        "powertest_sync",
+        "powertest_async",
         "ping_pong_equal",
         "ping_pong_unequal",
         "super_light",

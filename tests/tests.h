@@ -113,6 +113,71 @@ TestResults yourTest(ITaskSystem* t, bool do_async, int num_elements, int num_bu
     return results;
 }
 
+
+class MyTask : public IRunnable {
+    public:
+        int power;
+        MyTask(int power) {this->power = power;}
+        ~MyTask() {}
+        void runTask(int task_id, int num_total_tasks) {
+            volatile int output = 1;
+            for (int i = 0; i < power; i++) {
+                output *= i;
+            }
+        }
+};
+/*
+ * Implement your test here. Call this function from a wrapper that passes in
+ * do_async and num_elements. See `simpleTest`, `simpleTestSync`, and
+ * `simpleTestAsync` as an example.
+ */
+TestResults myTest(ITaskSystem* t, bool do_async) {
+    // TODO: initialize your input and output buffers
+    // TODO: instantiate your bulk task launches
+
+    MyTask first = MyTask(100000000);
+    MyTask second = MyTask(100);
+
+    int num_tasks = 1000000;
+    // Run the test
+    double start_time = CycleTimer::currentSeconds();
+    if (do_async) {
+        std::vector<TaskID> firstDeps;
+        TaskID first_task_id = t->runAsyncWithDeps(&first, 2, firstDeps);
+        std::vector<TaskID> secondDeps;
+        // secondDeps.push_back(first_task_id);
+        t->runAsyncWithDeps(&second, num_tasks, secondDeps);
+        t->sync();
+        // TODO:
+        // initialize dependency vector
+        // make calls to t->runAsyncWithDeps and push TaskID to dependency vector
+        // t->sync() at end
+    } else {
+        t->run(&first, 2);
+        t->run(&second, num_tasks);
+        // TODO: make calls to t->run
+    }
+    double end_time = CycleTimer::currentSeconds();
+
+    // Correctness validation
+    TestResults results;
+    results.passed = true;
+
+    results.time = end_time - start_time;
+
+
+    return results;
+}
+
+TestResults myTestSync(ITaskSystem* t) {
+    return myTest(t, false);
+}
+
+TestResults myTestAsync(ITaskSystem* t) {
+    return myTest(t, true);
+}
+
+
 /*
  * ==================================================================
  *   Begin task definitions used in tests
